@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using DevExpress.Xpo;
+using DevExpress.Xpo.Helpers;
+
 using Microsoft.AspNet.OData;
 using Microsoft.AspNetCore.Mvc;
 using ODataService.Helpers;
@@ -26,52 +28,46 @@ namespace ODataService.Controllers {
         }
 
         [HttpPost]
-        public IActionResult Post([FromBody]Product product) {
+        public IActionResult Post([FromBody] ChangesSet<Product> changes) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            Product entity = new Product(Session) {
-                ProductName = product.ProductName,
-                Picture = product.Picture
-            };
+            var product = new Product(Session);
+            changes.Put(product);
             Session.CommitChanges();
-            return Created(entity);
+            return Created(product);
         }
 
         [HttpPut]
-        public IActionResult Put([FromODataUri] int key, Product product) {
+        public IActionResult Put([FromODataUri] int key, [FromBody] ChangesSet<Product> changes) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            if(key != product.ProductID) {
-                return BadRequest();
-            }
-            Product existing = Session.GetObjectByKey<Product>(key);
-            if(existing == null) {
-                Product entity = new Product(Session) {
-                    ProductName = product.ProductName,
-                    Picture = product.Picture
-                };
+            Product product = Session.GetObjectByKey<Product>(key);
+            if(product == null) {
+                product = new Product(Session);
+                changes.Put(product);
                 Session.CommitChanges();
-                return Created(entity);
+                return Created(product);
             } else {
-                existing.ProductName = product.ProductName;
-                existing.Picture = product.Picture;
+                changes.Put(product);
                 Session.CommitChanges();
                 return Updated(product);
             }
         }
 
         [HttpPatch]
-        public IActionResult Patch([FromODataUri] int key, Delta<Product> product) {
+        public IActionResult Patch([FromODataUri] int key, ChangesSet<Product> changes) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            var result = ApiHelper.Patch<Product, int>(key, product, Session);
-            if(result != null) {
-                return Updated(result);
+            var product = Session.GetObjectByKey<Product>(key);
+            if(product == null) {
+                return NotFound();
             }
-            return NotFound();
+            changes.Patch(product);
+            Session.CommitChanges();
+            return Updated(product);
         }
 
         [HttpDelete]

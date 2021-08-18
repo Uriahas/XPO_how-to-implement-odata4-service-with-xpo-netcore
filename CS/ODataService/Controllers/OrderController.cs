@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using DevExpress.Xpo;
+using DevExpress.Xpo.Helpers;
+
 using Microsoft.AspNet.OData;
 using Microsoft.AspNet.OData.Routing;
 using Microsoft.AspNetCore.Mvc;
@@ -49,77 +51,69 @@ namespace ODataService.Controllers {
         }
 
         [HttpPost]
-        public IActionResult Post([FromBody]Order order) {
+        public IActionResult Post([FromBody] ChangesSet<Order> changesSet) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            Order entity = new Order(Session) {
-                ID = order.ID,
-                Date = order.Date,
-                OrderStatus = order.OrderStatus
-            };
+            var order = new Order(Session);
+            changesSet.Put(order);
             Session.CommitChanges();
-            return Created(entity);
+            return Created(order);
         }
 
         [HttpPut]
-        public IActionResult Put([FromODataUri] int key, Order order) {
+        public IActionResult Put([FromODataUri] int key, [FromBody] ChangesSet<Order> changesSet) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            if(key != order.ID) {
-                return BadRequest();
-            }
-            Order existing = Session.GetObjectByKey<Order>(key);
-            if(existing == null) {
-                Order entity = new Order(Session) {
-                    ID = order.ID,
-                    Date = order.Date,
-                    OrderStatus = order.OrderStatus
-                };
+            Order order = Session.GetObjectByKey<Order>(key);
+            if(order == null) {
+                order = new Order(Session);
+                changesSet.Put(order);
                 Session.CommitChanges();
-                return Created(entity);
+                return Created(order);
             } else {
-                existing.Date = order.Date;
+                changesSet.Put(order);
                 Session.CommitChanges();
-                return Updated(existing);
+                return Updated(order);
             }
         }
 
         [HttpPatch]
-        public IActionResult Patch([FromODataUri] int key, Delta<Order> order) {
+        public IActionResult Patch([FromODataUri] int key, ChangesSet<Order> changesSet) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            var result = ApiHelper.Patch<Order, int>(key, order, Session);
-            if(result != null) {
-                return Updated(result);
+            Order order = Session.GetObjectByKey<Order>(key);
+            if(order == null) {
+                return NotFound();
             }
-            return NotFound();
+            changesSet.Patch(order);
+            Session.CommitChanges();
+            return Updated(order);
         }
 
         [HttpPost]
         [HttpPut]
         [ODataRoute("Order({key})/OrderDetails")]
-        public IActionResult AddToOrderDetails([FromODataUri] int key, OrderDetail orderDetail) {
+        public IActionResult AddToOrderDetails([FromODataUri] int key, ChangesSet<OrderDetail> changes) {
             Order order = Session.GetObjectByKey<Order>(key);
             if(order == null) {
                 return NotFound();
             }
-            OrderDetail existing = order.OrderDetails.FirstOrDefault(d => d.OrderDetailID == orderDetail.OrderDetailID);
-            if(existing == null) {
-                OrderDetail entity = new OrderDetail(Session) {
-                    Quantity = orderDetail.Quantity,
-                    UnitPrice = orderDetail.UnitPrice,
-                };
-                order.OrderDetails.Add(entity);
+            object orderDetailId;
+            changes.TryGetPropertyValue(nameof(OrderDetail.OrderDetailID), out orderDetailId);
+            OrderDetail orderDetail = order.OrderDetails.FirstOrDefault(d => d.OrderDetailID == (int)orderDetailId);
+            if(orderDetail == null) {
+                orderDetail = new OrderDetail(Session);
+                changes.Put(orderDetail);
+                order.OrderDetails.Add(orderDetail);
                 Session.CommitChanges();
-                return Created(entity);
+                return Created(orderDetail);
             } else {
-                existing.Quantity = orderDetail.Quantity;
-                existing.UnitPrice = orderDetail.UnitPrice;
+                changes.Put(orderDetail);
                 Session.CommitChanges();
-                return Updated(existing);
+                return Updated(orderDetail);
             }
         }
 

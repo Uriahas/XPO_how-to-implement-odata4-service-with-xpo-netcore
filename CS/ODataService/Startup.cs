@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Linq;
 using DevExpress.Xpo.DB;
+using DevExpress.Xpo.Helpers;
+
 using Microsoft.AspNet.OData.Batch;
 using Microsoft.AspNet.OData.Extensions;
 using Microsoft.AspNetCore.Builder;
@@ -40,6 +42,8 @@ namespace ODataService
                 options.UseConnectionString(Configuration.GetConnectionString("MSSqlServer"))
                 .UseAutoCreationOption(AutoCreateOption.DatabaseAndSchema) // debug only
                 .UseEntityTypes(ConnectionHelper.GetPersistentTypes()));
+            services.AddHttpContextAccessor();
+            services.ConfigureOptions<ConfigureJsonOptions>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -49,6 +53,7 @@ namespace ODataService
             {
                 app.UseDeveloperExceptionPage();
             }
+
 
             app.UseODataBatching();
 

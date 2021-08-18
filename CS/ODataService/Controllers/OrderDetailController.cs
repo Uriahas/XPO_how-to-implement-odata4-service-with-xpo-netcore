@@ -1,5 +1,7 @@
 using System.Linq;
 using DevExpress.Xpo;
+using DevExpress.Xpo.Helpers;
+
 using Microsoft.AspNet.OData;
 using Microsoft.AspNetCore.Mvc;
 using ODataService.Helpers;
@@ -25,40 +27,35 @@ namespace ODataService.Controllers {
         }
 
         [HttpPut]
-        public IActionResult Put([FromODataUri] int key, OrderDetail orderDetail) {
+        public IActionResult Put([FromODataUri] int key, [FromBody] ChangesSet<OrderDetail> changes) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            if(key != orderDetail.OrderDetailID) {
-                return BadRequest();
-            }
-            OrderDetail existing = Session.GetObjectByKey<OrderDetail>(key);
-            if(existing == null) {
-                OrderDetail entity = new OrderDetail(Session) {
-                    Order = orderDetail.Order,
-                    Quantity = orderDetail.Quantity,
-                    UnitPrice = orderDetail.UnitPrice
-                };
+            OrderDetail orderDetail = Session.GetObjectByKey<OrderDetail>(key);
+            if(orderDetail == null) {
+                orderDetail = new OrderDetail(Session);
+                changes.Put(orderDetail);
                 Session.CommitChanges();
-                return Created(entity);
+                return Created(orderDetail);
             } else {
-                existing.Quantity = orderDetail.Quantity;
-                existing.UnitPrice = orderDetail.UnitPrice;
+                changes.Put(orderDetail);
                 Session.CommitChanges();
-                return Updated(existing);
+                return Updated(orderDetail);
             }
         }
 
         [HttpPatch]
-        public IActionResult Patch([FromODataUri] int key, Delta<OrderDetail> orderDetail) {
+        public IActionResult Patch([FromODataUri] int key, Delta<OrderDetail> changes) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            var result = ApiHelper.Patch<OrderDetail, int>(key, orderDetail, Session);
-            if(result != null) {
-                return Updated(result);
+            var orderDetail = Session.GetObjectByKey<OrderDetail>(key);
+            if(orderDetail == null) {
+                return NotFound();
             }
-            return NotFound();
+            changes.Patch(orderDetail);
+            Session.CommitChanges();
+            return Updated(orderDetail);
         }
 
         [HttpDelete]

@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using DevExpress.Xpo;
+using DevExpress.Xpo.Helpers;
+
 using Microsoft.AspNet.OData;
 using Microsoft.AspNetCore.Mvc;
 using ODataService.Helpers;
@@ -43,53 +45,46 @@ namespace ODataService.Controllers {
 
 
         [HttpPost]
-        public IActionResult Post([FromBody]Contract contract) {
+        public IActionResult Post([FromBody] ChangesSet<Contract> changes) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            Contract entity = new Contract(Session) {
-                ID = contract.ID,
-                Date = contract.Date,
-                Number = contract.Number
-            };
+            Contract contract = new Contract(Session);
+            changes.Put(contract);
             Session.CommitChanges();
-            return Created(entity);
+            return Created(contract);
         }
 
         [HttpPut]
-        public IActionResult Put([FromODataUri] int key, Contract contract) {
+        public IActionResult Put([FromODataUri] int key, [FromBody] ChangesSet<Contract> changes) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            if(key != contract.ID) {
-                return BadRequest();
-            }
-            Contract existing = Session.GetObjectByKey<Contract>(key);
-            if(existing == null) {
-                Contract entity = new Contract(Session) {
-                    ID = contract.ID,
-                    Date = contract.Date,
-                    Number = contract.Number
-                };
+            Contract contract = Session.GetObjectByKey<Contract>(key);
+            if(contract == null) {
+                contract = new Contract(Session);
+                changes.Put(contract);
                 Session.CommitChanges();
-                return Created(entity);
+                return Created(contract);
             } else {
-                existing.Date = contract.Date;
+                changes.Put(contract);
                 Session.CommitChanges();
-                return Updated(existing);
+                return Updated(contract);
             }
         }
 
         [HttpPatch]
-        public IActionResult Patch([FromODataUri] int key, Delta<Contract> contract) {
+        public IActionResult Patch([FromODataUri] int key, ChangesSet<Contract> changesSet) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            var result = ApiHelper.Patch<Contract, int>(key, contract, Session);
-            if(result != null) {
-                return Updated(result);
+            var contract = Session.GetObjectByKey<Contract>(key);
+            if(contract == null) {
+                return NotFound();
             }
-            return NotFound();
+            changesSet.Patch(contract);
+            Session.CommitChanges();
+            return Updated(contract);
         }
 
         [HttpDelete]

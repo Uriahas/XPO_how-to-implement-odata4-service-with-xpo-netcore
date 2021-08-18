@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using DevExpress.Xpo;
+using DevExpress.Xpo.Helpers;
+
 using Microsoft.AspNet.OData;
 using Microsoft.AspNetCore.Mvc;
 using ODataService.Helpers;
@@ -32,52 +34,46 @@ namespace ODataService.Controllers {
 
 
         [HttpPost]
-        public IActionResult Post([FromBody]Customer customer) {
+        public IActionResult Post([FromBody] ChangesSet<Customer> changesSet) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            Customer entity = new Customer(Session) {
-                CustomerID = customer.CustomerID,
-                CompanyName = customer.CompanyName
-            };
+            var customer = new Customer(Session);
+            changesSet.Put(customer);
             Session.CommitChanges();
-            return Created(entity);
+            return Created(customer);
         }
 
         [HttpPut]
-        public IActionResult Put([FromODataUri] string key, [FromBody] Customer customer) {
+        public IActionResult Put([FromODataUri] string key, [FromBody] ChangesSet<Customer> changesSet) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            if(key != customer.CustomerID) {
-                return BadRequest();
-            }
-            Customer existing = Session.GetObjectByKey<Customer>(key);
-            if(existing == null) {
-                Customer entity = new Customer(Session) {
-                    CustomerID = customer.CustomerID,
-                    CompanyName = customer.CompanyName
-                };
+            Customer customer = Session.GetObjectByKey<Customer>(key);
+            if(customer == null) {
+                customer = new Customer(Session);
+                changesSet.Put(customer);
                 Session.CommitChanges();
-                return Created(entity);
+                return Created(customer);
             } else {
-                existing.CustomerID = customer.CustomerID;
-                existing.CompanyName = customer.CompanyName;
+                changesSet.Put(customer);
                 Session.CommitChanges();
-                return Updated(customer);
+                return Updated(changesSet);
             }
         }
 
         [HttpPatch]
-        public IActionResult Patch([FromODataUri] string key, [FromBody] Delta<Customer> customer) {
+        public IActionResult Patch([FromODataUri] string key, [FromBody] ChangesSet<Customer> changesSet) {
             if(!ModelState.IsValid) {
                 return BadRequest();
             }
-            var result = ApiHelper.Patch<Customer, string>(key, customer, Session);
-            if(result != null) {
-                return Updated(result);
+            Customer customer = Session.GetObjectByKey<Customer>(key);
+            if(customer == null) {
+                return NotFound();
             }
-            return NotFound();
+            changesSet.Patch(customer);
+            Session.CommitChanges();
+            return Updated(customer);
         }
 
         [HttpDelete]
